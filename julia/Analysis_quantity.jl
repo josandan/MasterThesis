@@ -23,15 +23,15 @@ df = get_data(date, hour, "Sell")
 df.Quantity
 
 scatter(df.Quantity, marker = (:circle, 2), alpha = 0.5, label = "Quantities ordered by price")
-scatter(
-    cumsum(df.Quantity), zero(df.Quantity), 
-    alpha = 0.5, label = "Acc. Quantity",
-    framestyle = :origin, 
-    yaxis = false, ylims = (-1,1), 
-    markerstrokewidth = 3, 
-    marker = (:vline, 6),
-    size = (600,200)
-)
+# scatter(
+#     cumsum(df.Quantity), zero(df.Quantity), 
+#     alpha = 0.5, label = "Acc. Quantity",
+#     framestyle = :origin, 
+#     yaxis = false, ylims = (-1,1), 
+#     markerstrokewidth = 3, 
+#     marker = (:vline, 6),
+#     size = (600,200)
+# )
 scatter(
     df.Quantity, zero(df.Quantity), 
     alpha = 0.5, label = "Quantity, supply bids.",
@@ -58,6 +58,21 @@ scatter(
     size = (600,200)
 )
 
+scatter(df.Price, marker = (:circle, 2), alpha = 0.5, label = "Prices ordered")
+scatter(
+    df.Price, zero(df.Price), 
+    alpha = 0.5, label = "Price, supply bids.",
+    framestyle = :origin, 
+    yaxis = false, ylims = (-1,1), 
+    markerstrokewidth = 3, 
+    marker = (:vline, 6),
+    size = (600,200)
+)
+
+# spatial plot
+p1 = scatter(df.Price, df.Quantity, label = "Data", ylabel = "Quantity")
+p2 = scatter(clean_df.Price, clean_df.Quantity, label = "Cleaned data")
+plot(p1,p2, layout=(1,2), size=(800,400), xlabel = "Price", marker=(:circle,3))
 
 # Nonparametric estimation of the intensity
 
@@ -66,18 +81,23 @@ to_date = Date(2022,1,5)
 dates = from_date:Day(1):to_date
 hours = 12
 side = "Sell"
+point_process = "Price"
 
-comb_real = CombineRealizations(from_date, to_date, hours, side)
-CumuIntensity = PWLinearEstimator(comb_real)
+# comb_real = CombineRealizations(from_date, to_date, hours, side, point_process)
+# price_pp = comb_real.pp
+# CumuIntensity = PWLinearEstimator(comb_real)
 
-plot(comb_real.pp, CumuIntensity)
+comb_prices = CombinePriceDF(dates, hours, side)
+price_pp = comb_prices.DF.Price
+CumuIntensity = PWLinearEstimator((pp = price_pp, k = comb_prices.k, n = comb_prices.n))
 
+plot(price_pp, CumuIntensity)
 
-Est_Intensity = DifferentiatePWLinear(comb_real.pp, CumuIntensity)
-plot(comb_real.pp, Est_Intensity, lt = :steppost)
+Est_Intensity = DifferentiatePWLinear(price_pp, CumuIntensity)
+plot(price_pp, Est_Intensity, lt = :steppost)
 xlims!(-5,100)
 
-more_unique = unique(round.(comb_real.pp, digits = 0))
+more_unique = unique(round.(price_pp, digits = 0))
 
 Est_Intensity2 = DifferentiatePWLinear(more_unique, CumuIntensity)
 plot(more_unique, Est_Intensity, lt = :steppost)
@@ -85,7 +105,8 @@ xlims!(-5,100)
 
 # Test model
 
-s = CumuIntensity.(more_unique)
+s = CumuIntensity.(price_pp)
+# s = CumuIntensity.(more_unique)
 Δs = [s[1], diff(s)...]
 histogram(Δs, normalize = true, label = "Δsₖ")
 plot!(t -> (t ≥ 0)*exp(-t), label = "PDF of Standard Exponential")
@@ -105,7 +126,7 @@ plot(a, DifferentiatePWLinear(a, cumu_intens), lt = :steppost)
 
 # Resample and validate
 
-tₙ = more_unique
+tₙ = more_unique[more_unique .!== -0.0]
 
 result = OgataThinning(tₙ, Est_Intensity2)
 result.hom_sample
@@ -119,7 +140,7 @@ scatter(tₙ, zero, alpha = 0.5, markerstrokewidth = 0, framestyle = :origin, la
 ylims!(-1,1)
 scatter!(result.sim, zero, alpha = 0.5, markerstrokewidth = 0, label = "Simulation")
 
-bins = 0:(tₙ[end]/100):tₙ[end]
+bins = tₙ[begin]:((tₙ[end]-tₙ[begin])/100):tₙ[end]
 histogram(tₙ, bins = bins, alpha = 0.7, label = "Data")
 histogram!(result.sim, bins = bins, alpha = 0.7, label = "Simulation")
 
@@ -133,18 +154,18 @@ length(result.sim)
 # Mollified intensity
 
 ϕᵋ = Mollifier(5.)
-F̂ = ϕᵋ(CumuIntensity, comb_real.pp)
-f̂ = ∂(ϕᵋ)(CumuIntensity, comb_real.pp)
+F̂ = ϕᵋ(CumuIntensity, price_pp)
+f̂ = ∂(ϕᵋ)(CumuIntensity, price_pp)
 
-plot(comb_real.pp, CumuIntensity)
+plot(price_pp, CumuIntensity)
 plot!(F̂)
 plot!(f̂)
 
-plot(comb_real.pp, f̂)
+plot(price_pp, f̂)
 plot!(more_unique, f̂)
 
 plot(more_unique, f̂, label = "Mollified intensity")
-# plot!(comb_real.pp, Est_Intensity, alpha = 0.5)
+# plot!(price_pp, Est_Intensity, alpha = 0.5)
 plot!(more_unique, Est_Intensity2, alpha = 0.5, label = "Intensity")
 xlims!(-5,500)
 
@@ -160,12 +181,12 @@ scatter(tₙ, zero, alpha = 0.5, markerstrokewidth = 0, framestyle = :origin, la
 ylims!(-1,1)
 scatter!(result_moll.sim, zero, alpha = 0.5, markerstrokewidth = 0, label = "Simulation")
 
-bins = 0:(tₙ[end]/100):tₙ[end]
+bins = tₙ[begin]:((tₙ[end]-tₙ[begin])/100):tₙ[end]
 histogram(tₙ, bins = bins, alpha = 0.7, label = "Data")
 histogram!(result_moll.sim, bins = bins, alpha = 0.7, label = "Simulation")
 
 length(result_moll.sim)
-length(more_unique)
+length(tₙ)
 
 
 
@@ -223,9 +244,9 @@ end
 f̂
 MakePos(f̂)
 
-b = ∫(f̂; ε = 50.)(comb_real.pp[end])
+b = ∫(f̂; ε = 50.)(price_pp[end])
 
-plot(comb_real.pp, f̂.(comb_real.pp)/b)
+plot(price_pp, f̂.(price_pp)/b)
 
 
 

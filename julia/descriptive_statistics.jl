@@ -2,9 +2,9 @@ using Pkg
 Pkg.activate(".")
 
 # Packages and functions: 
-using Distributions, Embeddings, StatsBase
+using Distributions, Embeddings, StatsBase, Polynomials
 
-include("c:\\Code\\julia_DayAheadEmbedding\\SampleScript\\Includes.jl")
+include("SampleScript\\Includes.jl")
 
 # Get Random Date 
 date = rand(Date(2022,1,1):Day(1):Date(2022,11,23))
@@ -20,6 +20,7 @@ dates = from_date:Day(1):to_date
 hours = 12
 side = "Sell"
 
+# Investigating the bids with very high quantities
 
 data = DataFrame([[],[],[],[],[],[]], ["Price", "Quantity", "Side", "Date", "Hour", "Curve"])
 @time for date = dates
@@ -47,18 +48,17 @@ ylabel!("Frequency")
 xlabel!("Quantity")
 
 # Plot: Total quantity pr day with price -500€, hour 12
-scatter(Date.(sum_pr_day.Date, dateformat"y-m-d"), sum_pr_day.Quantity_sum, label = "")
+scatter(dates, sum_pr_day.Quantity_sum, label = "Data")
 ylabel!("Quantity")
 xlabel!("Date")
+p = Polynomials.fit([1.:length(sum_pr_day.Quantity_sum)...], sum_pr_day.Quantity_sum, 2)
+plot!(dates, p.([1.:length(sum_pr_day.Quantity_sum)...]), lw = 2, ls = :dash, label = "2nd order polynomial")
+p = Polynomials.fit([1.:length(sum_pr_day.Quantity_sum)...], sum_pr_day.Quantity_sum, 3)
+plot!(dates, p.([1.:length(sum_pr_day.Quantity_sum)...]), lw = 2, ls = :dash, label = "3rd order polynomial")
 
-
-
-data
 data.Quantity |> maximum
-occurrences = rle(data.Hour)
-occurrences[2] |> maximum
 
-
+# Cov matrix
 
 α = 0.95
 
@@ -67,6 +67,43 @@ occurrences[2] |> maximum
 
 μ = [mean(df[:,:Price]), mean(df[:,:Quantity])]
 
-
 scatter(df[:,:Price], df[:,:Quantity])
 covellipse!(μ, 10 * Σ)
+
+# Investigating the number of bids
+
+n_bids = Float64[]
+@time for date = dates
+    for hour in hours
+        df = get_data(date, hour, side)
+        n = filter(:Price => !=(-500.0), df) |> nrow
+        append!(n_bids, n)
+    end
+end
+
+scatter(dates, n_bids, label = "")
+xlabel!("Date")
+ylabel!("Number of bids")
+
+histogram(n_bids, bins = 175:25:450, label = "")
+xlabel!("Number of bids")
+ylabel!("Frequency")
+
+# Investigating the total supplied quantity // market volume
+
+total_quantity = Float64[]
+@time for date = dates
+    for hour in hours
+        df = get_data(date, hour, side)
+        tq = filter(:Price => !=(-500.0), df).Quantity |> sum
+        append!(total_quantity, tq)
+    end
+end
+
+scatter(dates, total_quantity, label = "")
+xlabel!("Date")
+ylabel!("Volume")
+
+histogram(total_quantity, label = "")
+xlabel!("Volume")
+ylabel!("Frequency")

@@ -1,6 +1,11 @@
 # functions
 
-function CombineRealizations(from_date::Date, to_date::Date, hours::Union{AbstractVector{N}, Int64}, side::String) where {N}
+function CombineRealizations(
+    from_date::Date, to_date::Date, 
+    hours::Union{AbstractVector{N}, Int64}, 
+    side::String,
+    point_process::String = "Quantity"
+) where {N}
     dates = from_date:Day(1):to_date
 
     data = Float64[]
@@ -8,15 +13,48 @@ function CombineRealizations(from_date::Date, to_date::Date, hours::Union{Abstra
         for hour in hours
             df = get_data(date, hour, side)
             cleaned_df = filter(:Price => !=(-500.0), df)
-            append!(data, cleaned_df.Quantity)
+            append!(data, cleaned_df[:,point_process])
         end
     end
 
     k = length(dates) * length(hours)
     n = length(data)
-    pp = unique(round.(data, digits = 4)) |> sort
+    pp = data |> sort
+    # pp = unique(round.(data, digits = 4)) |> sort
 
     return (pp = pp, k = k, n = n)
+end
+
+function CombineDF(
+    dates::StepRange{Date, Day}, 
+    hours::Union{AbstractVector{N}, Int64}, 
+    side::String
+) where {N}
+    data = DataFrame(Price = Float64[], Quantity = Float64[], Side = [], Date = [], Hour = [], Curve = [])
+    for date = dates
+        for hour in hours
+            df = get_data(date, hour, side)
+            append!(data, df)
+        end
+    end
+
+    return data
+end
+
+function CombinePriceDF(
+    dates::StepRange{Date, Day}, 
+    hours::Union{AbstractVector{N}, Int64}, 
+    side::String
+) where {N}
+    DF = CombineDF(dates, hours, side)
+    cleaned_df = filter(:Price => !=(-500.0), DF)
+
+    grouped_df = combine(groupby(cleaned_df, :Price), :Quantity => sum)
+    
+    k = length(dates) * length(hours)
+    n = nrow(cleaned_df)
+
+    return (DF = sort(grouped_df, :Price), k = k, n = n)
 end
 
 function PWLinearEstimator(comb_realization::NamedTuple{(:pp, :k, :n), Tuple{Vector{Float64}, Int64, Int64}})
@@ -51,8 +89,8 @@ function DifferentiatePWLinear(pp::Vector{Float64}, PWLinearFun::Function)
     end
 end
 
-function SimulateHomPoisson(T::Real, λ::Real)
-	t = 0
+function SimulateHomPoisson(t₀::Real, T::Real, λ::Real)
+	t = t₀
 	σ = Float64[]
 
 	while t < T
@@ -63,16 +101,16 @@ function SimulateHomPoisson(T::Real, λ::Real)
 			push!(σ, σₖ)
 		end
 	end
-
 	return σ
 end
 
 function OgataThinning(tₙ::AbstractVector{R}, intensity_func::Function) where {R}
 	σ = Float64[]
-	T = tₙ[end]
+	t₀ = min(tₙ[begin],0)
+    T = tₙ[end]
 	max_intensity = maximum(intensity_func.(tₙ))
 
-	hom_sample = SimulateHomPoisson(T, max_intensity)
+	hom_sample = SimulateHomPoisson(t₀, T, max_intensity)
 
 	for i in 1:length(hom_sample)
 		u = rand(Uniform(0,1))
