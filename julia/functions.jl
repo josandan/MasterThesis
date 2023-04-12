@@ -104,7 +104,7 @@ function SimulateHomPoisson(t₀::Real, T::Real, λ::Real)
 	return σ
 end
 
-function OgataThinning(tₙ::AbstractVector{R}, intensity_func::Function) where {R}
+function LewisThinning(tₙ::AbstractVector{R}, intensity_func::Function) where {R}
 	σ = Float64[]
 	t₀ = min(tₙ[begin],0)
     T = tₙ[end]
@@ -121,14 +121,48 @@ function OgataThinning(tₙ::AbstractVector{R}, intensity_func::Function) where 
 	return (hom_sample = hom_sample, sim = σ)
 end
 
+@views function makechunks(X::AbstractVector, n::Integer)
+    c = length(X) ÷ n
+    return [X[1+c*k:(k == n-1 ? end : c*k+c)] for k = 0:n-1]
+end
 
+# @views function makechunks(X::AbstractVector, n::Integer)
+#     X_splits = [X[begin]:((X[end]-X[begin])/n):X[end]...]
+#     X_left = X_splits[1:n]
+#     X_right = X_splits[2:(n+1)]
+#     X_right[n] = X_right[n]+1
+#     return [X[(X.>=X_left[i]) .& (X.<X_right[i])] for i = 1:n]
+# end
+
+function OgataThinning(tₙ::AbstractVector{R}, intensity_func::Function) where {R}
+	tₙ_chunks = makechunks(tₙ, 100)
+    σ = Float64[]
+    hom_sample = Float64[]
+    # max_int = Float64[]
+
+    for k in 1:length(tₙ_chunks)
+        if !isempty(tₙ_chunks[k])
+            max_intensity = maximum(intensity_func.(tₙ_chunks[k]))
+            # push!(max_int, max_intensity)
+            hom_sample_chunk = SimulateHomPoisson(tₙ_chunks[k][begin], tₙ_chunks[k][end], max_intensity)
+            append!(hom_sample, hom_sample_chunk)
+        
+            for i in 1:length(hom_sample_chunk)
+                u = rand(Uniform(0,1))
+                if u <= intensity_func(hom_sample_chunk[i])/max_intensity
+                    push!(σ, hom_sample_chunk[i])
+                end
+            end 
+        end
+    end
+	return (hom_sample = hom_sample, sim = σ)
+end
 
 
 
 
 function MakePos(l::LinearEmbedding)     
-    a = l.f.inner
-    x = l.x.inner
+    a, x = l.f.inner, l.x.inner
 
     a_rle = rle((a.<0))
     rle_below_0 = a_rle[2][findall(a_rle[1].==1)]
@@ -147,6 +181,7 @@ function MakePos(l::LinearEmbedding)
         x₀ = -a[i-1]/α + x[i-1]
         x[i] = x₀
         a[i:end] .= 0
+        if (i == length(x)) push!(x, length(x)); push!(a, 0) end
     end
     below_0 = findall(a.<0)
     while (!isempty(below_0))
@@ -172,3 +207,17 @@ function MakePos(l::LinearEmbedding)
     return l
 end
 
+function RestrictFun(l::LinearEmbedding)
+    eps = 1e-4
+    f, x = l.f.inner, l.x.inner
+    insert!(x, 1, x[begin]-eps)
+    insert!(f, 1, 0)
+    insert!(x, 1, x[begin]-eps)
+    insert!(f, 1, 0)
+
+    push!(x, x[end]+eps)
+    push!(f, 0)
+    push!(x, x[end]+eps)
+    push!(f, 0)
+    return LinearEmbedding(a,x)
+end

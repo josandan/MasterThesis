@@ -4,9 +4,13 @@ authors = ["Josandan <34207343+Josandan@users.noreply.github.com>"]
 version = "0.1.0"
 
 [deps]
+BivariateCopulas = "4bd3e1bb-7fd7-40d8-8c9a-038dccb4bc81"
+Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Embeddings = "a78089e2-3f5b-4099-97dc-b510d4309f59"
+EmpiricalCopulas = "c013c145-7959-4a12-978a-dc5d9e867883"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 GeoDataFrames = "62cb38b5-d8d2-4862-a48e-6a340996859f"
 GeoStats = "dcc97b0b-8ce5-5539-9008-bb190f959ef6"

@@ -91,22 +91,25 @@ comb_prices = CombinePriceDF(dates, hours, side)
 price_pp = comb_prices.DF.Price
 CumuIntensity = PWLinearEstimator((pp = price_pp, k = comb_prices.k, n = comb_prices.n))
 
-plot(price_pp, CumuIntensity)
+plot(price_pp, CumuIntensity, label = "Λ(t)")
 
-Est_Intensity = DifferentiatePWLinear(price_pp, CumuIntensity)
-plot(price_pp, Est_Intensity, lt = :steppost)
+scatter!(price_pp, zero(price_pp))
+histogram(CumuIntensity.(price_pp))
+
+EstIntensity = DifferentiatePWLinear(price_pp, CumuIntensity)
+plot(price_pp, EstIntensity, lt = :steppost, label = "λ(t)")
 xlims!(-5,100)
 
 more_unique = unique(round.(price_pp, digits = 0))
 
-Est_Intensity2 = DifferentiatePWLinear(more_unique, CumuIntensity)
-plot(more_unique, Est_Intensity, lt = :steppost)
+EstIntensity2 = DifferentiatePWLinear(more_unique, CumuIntensity)
+plot(more_unique, EstIntensity2, lt = :steppost)
 xlims!(-5,100)
 
 # Test model
 
 s = CumuIntensity.(price_pp)
-# s = CumuIntensity.(more_unique)
+s = CumuIntensity.(more_unique)
 Δs = [s[1], diff(s)...]
 histogram(Δs, normalize = true, label = "Δsₖ")
 plot!(t -> (t ≥ 0)*exp(-t), label = "PDF of Standard Exponential")
@@ -115,25 +118,18 @@ qqplot(Δs, Exponential(1))
 xlabel!("Data")
 ylabel!("Exponential Distribution")
 
-# Test with small example
-a = Float64[0, 2, 2, 2, 2, 4, 7, 8, 8, 9, 10]
-
-cumu_intens = PWLinearEstimator(a, 1, length(a))
-plot(a, cumu_intens.(a))
-
-plot(a, DifferentiatePWLinear(a, cumu_intens), lt = :steppost)
-
 
 # Resample and validate
 
-tₙ = more_unique[more_unique .!== -0.0]
+tₙ = price_pp[price_pp .!== -0.0]
+# tₙ = more_unique[more_unique .!== -0.0]
 
-result = OgataThinning(tₙ, Est_Intensity2)
+result = OgataThinning(tₙ, EstIntensity)
 result.hom_sample
 result.sim
 
-plot(tₙ, Est_Intensity, lt = :steppost, label = "λ(t)")
-scatter!(result.hom_sample, zero, alpha = 0.2, marker = (:circle,2), markerstrokewidth = 0, label = "Hom. PP")
+plot(tₙ, EstIntensity, lt = :steppost, label = "λ(t)")
+scatter!(result.hom_sample, zero, alpha = 0.3, marker = (:circle,2), markerstrokewidth = 0, label = "Hom. PP")
 scatter!(result.sim, zero, marker = (:circle,2), label = "Thinned PP")
 
 scatter(tₙ, zero, alpha = 0.5, markerstrokewidth = 0, framestyle = :origin, label = "Data")
@@ -145,6 +141,7 @@ histogram(tₙ, bins = bins, alpha = 0.7, label = "Data")
 histogram!(result.sim, bins = bins, alpha = 0.7, label = "Simulation")
 
 length(result.sim)
+length(tₙ)/(length(dates)*length(hours))
 
 
 
@@ -153,7 +150,7 @@ length(result.sim)
 
 # Mollified intensity
 
-ϕᵋ = Mollifier(5.)
+ϕᵋ = Mollifier(10.)
 F̂ = ϕᵋ(CumuIntensity, price_pp)
 f̂ = ∂(ϕᵋ)(CumuIntensity, price_pp)
 
@@ -165,16 +162,32 @@ plot(price_pp, f̂)
 plot!(more_unique, f̂)
 
 plot(more_unique, f̂, label = "Mollified intensity")
-# plot!(price_pp, Est_Intensity, alpha = 0.5)
-plot!(more_unique, Est_Intensity2, alpha = 0.5, label = "Intensity")
+# plot!(price_pp, EstIntensity, alpha = 0.5)
+plot!(more_unique, EstIntensity2, alpha = 0.5, label = "Intensity")
 xlims!(-5,500)
 
-# Resample and validate molliefied intensity
+# Test mollified intensity
+
+s = F̂.(price_pp)
+Δs = [s[1], diff(s)...]
+histogram(Δs, normalize = true, label = "Δsₖ")
+plot!(t -> (t ≥ 0)*exp(-t), label = "PDF of Standard Exponential")
+
+qqplot(Δs, Exponential(1))
+xlabel!("Data")
+ylabel!("Exponential Distribution")
+
+
+
+
+
+
+# Resample and validate mollified intensity
 
 result_moll = OgataThinning(tₙ, f̂)
 
 plot(tₙ, f̂, lt = :steppost, label = "λ(t)")
-scatter!(result_moll.hom_sample, zero, alpha = 0.2, marker = (:circle,2), markerstrokewidth = 0, label = "Hom. PP")
+scatter!(result_moll.hom_sample, zero, alpha = 0.3, marker = (:circle,2), markerstrokewidth = 0, label = "Hom. PP")
 scatter!(result_moll.sim, zero, marker = (:circle,2), label = "Thinned PP")
 
 scatter(tₙ, zero, alpha = 0.5, markerstrokewidth = 0, framestyle = :origin, label = "Data")
@@ -186,7 +199,9 @@ histogram(tₙ, bins = bins, alpha = 0.7, label = "Data")
 histogram!(result_moll.sim, bins = bins, alpha = 0.7, label = "Simulation")
 
 length(result_moll.sim)
-length(tₙ)
+length(tₙ)/(length(dates)*length(hours))
+
+
 
 
 
@@ -198,29 +213,12 @@ x = Float64[1:20...]
 l = LinearEmbedding(a,x)
 plot(x, l)
 l = MakePos(l)
-plot!(x, l)
-
-function RestrictFun(l::LinearEmbedding)
-    
-end
-
-x2 = [-5:25...]
-plot(x2, l)
-
-
-eps = 1e-4
-insert!(l.x.inner, 1, x[1]-eps)
-insert!(l.f.inner, 1, 0)
-insert!(l.x.inner, 1, x[1]-2*eps)
-insert!(l.f.inner, 1, 0)
-
-l.x
-l.f
-
+l = RestrictFun(l)
+x2 = [-5:0.1:25...]
 plot!(x2, l)
-xlims!(-1,2)
 
 
+a, x = l.f, l.x
 
 
 ∫(F::LinearEmbedding; l = 0., u = Inf, ε = 0.0) = begin
