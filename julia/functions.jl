@@ -47,10 +47,17 @@ function CombinePriceDF(
     side::String
 ) where {N}
     DF = CombineDF(dates, hours, side)
-    cleaned_df = filter(:Price => !=(-500.0), DF)
 
-    grouped_df = combine(groupby(cleaned_df, :Price), :Quantity => sum)
-    
+    cleaned_df = @chain DF begin
+        @subset @byrow :Price != -500.0
+        @subset @byrow :Quantity != 0
+    end
+
+    grouped_df = @chain cleaned_df begin
+        groupby([:Price, :Curve])
+        combine(:Quantity => sum => :Quantity)
+    end
+
     k = length(dates) * length(hours)
     n = nrow(cleaned_df)
 
@@ -219,5 +226,67 @@ function RestrictFun(l::LinearEmbedding)
     push!(f, 0)
     push!(x, x[end]+eps)
     push!(f, 0)
-    return LinearEmbedding(a,x)
+    return LinearEmbedding(f,x)
 end
+
+function GetDensity(point_pattern::Vector{Float64}, k::Real, n::Real, mollifier_tolerance::Real)
+    CumuIntensity = PWLinearEstimator((pp = point_pattern, k = k, n = n))
+    # EstIntensity = DifferentiatePWLinear(point_pattern, CumuIntensity)
+    ϕᵋ = Mollifier(mollifier_tolerance)
+    MollCumuIntensity = ϕᵋ(CumuIntensity, point_pattern)
+    # MollIntensity = ∂(ϕᵋ)(CumuIntensity, point_pattern)
+
+    M = MollCumuIntensity.x[end]
+    B = MollCumuIntensity.x[begin]
+    x = MollCumuIntensity.x
+    Fₓ = map(x -> (MollCumuIntensity(x)-MollCumuIntensity(B))/(MollCumuIntensity(M)-MollCumuIntensity(B)), MollCumuIntensity.x)
+    # Fₓ = map(x -> (MollCumuIntensity(x))/(MollCumuIntensity(M)), MollCumuIntensity.x)
+
+    return DiscretizedDistribution(LinearEmbedding(Fₓ,x))
+end
+
+# ((Λₙ[i+1] - Λₙ[i])/(tₙ[i+1] - tₙ[i])) * (p - tₙ[i]) + Λₙ[i]
+
+function InverseDensity(Λₙ::AbstractVector{R}, tₙ::AbstractVector{Q}) where {R,Q}
+	p -> begin
+        i = searchsortedfirst(Λₙ, p)
+
+        if i == 1
+            return 0
+        elseif i == length(tₙ) + 1
+            a = (Λₙ[i-1] - Λₙ[i-2])/(tₙ[i-1] - tₙ[i-2])
+            b = Λₙ[i-2]
+            c = tₙ[i-2]
+            return (Λₙ[i-1] + a*c - b)/a
+        elseif Λₙ[i] == Λₙ[i-1]
+            return Λₙ[i-1]
+        else
+            a = (Λₙ[i] - Λₙ[i-1])/(tₙ[i] - tₙ[i-1])
+            b = Λₙ[i-1]
+            c = tₙ[i-1]
+            return (p + a*c - b)/a
+        end
+	end
+end
+
+# function InverseDensity(Λₙ::AbstractVector{R}, tₙ::AbstractVector{Q}) where {R,Q}
+# 	p -> begin
+#         i = searchsortedlast(Λₙ, p)
+
+#         if i == 0
+#             return 0
+#         elseif i == length(tₙ)
+#             a = (Λₙ[i] - Λₙ[i-1])/(tₙ[i] - tₙ[i-1])
+#             b = Λₙ[i-1]
+#             c = tₙ[i-1]
+#             return (Λₙ[i] + a*c - b)/a
+#         elseif Λₙ[i] == Λₙ[i+1]
+#             return Λₙ[i]
+#         else
+#             a = (Λₙ[i+1] - Λₙ[i])/(tₙ[i+1] - tₙ[i])
+#             b = Λₙ[i]
+#             c = tₙ[i]
+#             return (p + a*c - b)/a
+#         end
+# 	end
+# end

@@ -3,10 +3,12 @@ Pkg.activate(".")
 
 # Packages and functions: 
 using Distributions, Embeddings, StatsBase
+using EmpiricalCopulas, Chain, DataFramesMeta, ForwardDiff, Interpolations, BivariateCopulas
 
 include("SampleScript\\Includes.jl")
 include("Mollifiers.jl")
 include("functions.jl")
+include("DiscretizedDistributions.jl")
 
 
 # Get Random Date 
@@ -151,24 +153,24 @@ length(tₙ)/(length(dates)*length(hours))
 # Mollified intensity
 
 ϕᵋ = Mollifier(10.)
-F̂ = ϕᵋ(CumuIntensity, price_pp)
-f̂ = ∂(ϕᵋ)(CumuIntensity, price_pp)
+MollCumuIntensity = ϕᵋ(CumuIntensity, price_pp)
+MollIntensity = ∂(ϕᵋ)(CumuIntensity, price_pp)
 
 plot(price_pp, CumuIntensity)
-plot!(F̂)
-plot!(f̂)
+plot!(MollCumuIntensity)
+plot!(MollIntensity)
 
-plot(price_pp, f̂)
-plot!(more_unique, f̂)
+plot(price_pp, MollIntensity)
+plot!(more_unique, MollIntensity)
 
-plot(more_unique, f̂, label = "Mollified intensity")
+plot(more_unique, MollIntensity, label = "Mollified intensity")
 # plot!(price_pp, EstIntensity, alpha = 0.5)
 plot!(more_unique, EstIntensity2, alpha = 0.5, label = "Intensity")
 xlims!(-5,500)
 
 # Test mollified intensity
 
-s = F̂.(price_pp)
+s = MollCumuIntensity.(price_pp)
 Δs = [s[1], diff(s)...]
 histogram(Δs, normalize = true, label = "Δsₖ")
 plot!(t -> (t ≥ 0)*exp(-t), label = "PDF of Standard Exponential")
@@ -184,9 +186,9 @@ ylabel!("Exponential Distribution")
 
 # Resample and validate mollified intensity
 
-result_moll = OgataThinning(tₙ, f̂)
+result_moll = OgataThinning(tₙ, MollIntensity)
 
-plot(tₙ, f̂, lt = :steppost, label = "λ(t)")
+plot(tₙ, MollIntensity, lt = :steppost, label = "λ(t)")
 scatter!(result_moll.hom_sample, zero, alpha = 0.3, marker = (:circle,2), markerstrokewidth = 0, label = "Hom. PP")
 scatter!(result_moll.sim, zero, marker = (:circle,2), label = "Thinned PP")
 
@@ -221,30 +223,42 @@ plot!(x2, l)
 a, x = l.f, l.x
 
 
-∫(F::LinearEmbedding; l = 0., u = Inf, ε = 0.0) = begin
-    f, x = F.f, F.x 
+# ∫(F::LinearEmbedding; l = 0., u = Inf, ε = 0.0) = begin
+#     f, x = F.f, F.x 
 
-    a, b = extrema(x)
+#     a, b = extrema(x)
 
-    x̂ = filter(x -> max(l,a) ≤ x ≤ min(u,b + ε), x)  
-    f̂ = map(x -> F(x), x̂)
+#     x̂ = filter(x -> max(l,a) ≤ x ≤ min(u,b + ε), x)  
+#     f̂ = map(x -> F(x), x̂)
 
-    I = zero(f̂)
-    for i in 2:(length(x̂))
-        I[i] = I[i-1] + 0.5*(f̂[i] + f̂[i-1])*(x̂[i] - x̂[i-1])
-    end
+#     I = zero(f̂)
+#     for i in 2:(length(x̂))
+#         I[i] = I[i-1] + 0.5*(f̂[i] + f̂[i-1])*(x̂[i] - x̂[i-1])
+#     end
 
-    return Embeddings.LinearEmbedding(I, x̂)
-end
+#     return Embeddings.LinearEmbedding(I, x̂)
+# end
 
-@time ∫(f̂; l = 0, u = 10000.)
+# @time ∫(f̂; l = 0, u = 10000.)
 
-f̂
-MakePos(f̂)
+# b = ∫(f̂; ε = 50.)(price_pp[end])
+# plot(price_pp, f̂.(price_pp)/b)
 
-b = ∫(f̂; ε = 50.)(price_pp[end])
 
-plot(price_pp, f̂.(price_pp)/b)
+MollIntensity
+empirical_pdf = MollIntensity |> MakePos |> RestrictFun
+plot(price_pp, empirical_pdf)
+
+
+
+
+
+
+
+
+
+
+
 
 
 

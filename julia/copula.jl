@@ -3,51 +3,56 @@ Pkg.activate(".")
 
 # Packages and functions: 
 using Distributions, Embeddings, StatsBase
-using EmpiricalCopulas, Chain, DataFramesMeta
-
-# using KernelDensity
+using EmpiricalCopulas, Chain, DataFramesMeta, ForwardDiff, Interpolations, BivariateCopulas, DiscretizedCopulas
 
 include("SampleScript\\Includes.jl")
+include("Mollifiers.jl")
+include("functions.jl")
+include("DiscretizedDistributions.jl")
 
-# get_index() = begin 
-#     db = DB("./julia/TestData/DayAhead.db")
-#     execute(db, "SELECT * FROM 'index'") |> DataFrame 
-# end 
 
-# index = get_index()
 
-# Get Supply and Demand 
-data = get_data(Date(2022,1,1),1,"Buy") 
-data = @chain data begin 
-    groupby([:Price,:Curve]) 
-    combine(:Quantity => sum => :Quantity) 
-    @subset @byrow :Quantity != 0 
-end
+from_date = Date(2022,1,1)
+to_date = Date(2022,1,5)
+dates = from_date:Day(1):to_date
+hours = 12
+side = "Sell"
 
-Demand = Curve(data) 
-𝐛 = bids(Demand)
+comb_prices = CombinePriceDF(dates, hours, side)
+price_pp = comb_prices.DF.Price
+quantity_pp = comb_prices.DF.Quantity
+bid_df = comb_prices.DF
 
-# Plot Buy Bids 
+Supply = Curve(bid_df)
+𝐛 = bids(Supply)
+n = comb_prices.n/comb_prices.k |> round
+n = convert(Int, n)
+
+# Plot Bids 
 scatter(𝐛, label = "") 
 xlabel!("Price") 
 ylabel!("Quantity")
 
-bid_dataframe = DataFrame(:Price => [b[1] for b in 𝐛],:Quantity => [b[2] for b in 𝐛])
+mollifier_tolerance = 10.
 
-X,Y = bid_dataframe[:,:Price], bid_dataframe[:,:Quantity]
+F_p = GetDensity(price_pp, comb_prices.k, comb_prices.n, mollifier_tolerance)
+# F_p = ecdf(price_pp)
+F_q = ecdf(quantity_pp)
 
-F̂ = ecdf(bid_dataframe[:,:Price]) 
-Ĝ = ecdf(bid_dataframe[:,:Quantity])
+F_p⁻¹ = InverseDensity(cdf(F_p, price_pp), price_pp)
+# F_p⁻¹ = x -> quantile(price_pp, x)
+F_q⁻¹ = x -> quantile(quantity_pp, x)
 
-plot(LinRange(minimum(Y), maximum(Y), 1001),x -> Ĝ(x))
+plot(price_pp, x -> cdf(F_p,x))
+# plot(price_pp, x -> F_p(x))
+plot!(sort(quantity_pp), x -> F_q(x))
 
-F̂⁻¹ = x -> quantile(bid_dataframe[:,:Price], x)
-Ĝ⁻¹ = x -> quantile(bid_dataframe[:,:Quantity], x)
+# rand(F_q,1000)
 
-# Fit Copula 
-U = F̂.(bid_dataframe[:,:Price]) 
-V = Ĝ.(bid_dataframe[:,:Quantity]) 
-C = BernsteinCopula(U,V)
+# Fit copula
+C = BetaCopula(cdf(F_p, price_pp), F_q(quantity_pp))
+# C = BetaCopula(F_p(price_pp), F_q(quantity_pp))
+C = DiscretizedCopula{:PDF}(C, 300)
 
 gradient(C, [0.5,0.5])
 
@@ -55,17 +60,22 @@ gradient(C, [0.5,0.5])
 Z = [pdf(C,[u,v]) for u in LinRange(0.01,0.99,101), v in LinRange(0.01,0.99,101)]
 heatmap(Z)
 
-W = rand(C, 227)' 
+W = rand(C, 739)' 
 Û = W[:,1] 
 V̂ = W[:,2] 
 
-X̂ = F̂⁻¹.(Û) 
-Ŷ = Ĝ⁻¹.(V̂) 
+X̂ = F_p⁻¹.(Û) 
+Ŷ = F_q⁻¹.(V̂) 
 
-scatter(X,Y) 
-scatter!(X̂,Ŷ)
+scatter(𝐛, label = "") 
+xlabel!("Price") 
+ylabel!("Quantity") 
+scatter!(X̂,Ŷ, label = "")
 
-Demand₀ = DataFrame(:Price => X̂, :Quantity => Ŷ, :Curve => :Demand) |> Curve
+Supply₀ = DataFrame(:Price => X̂, :Quantity => Ŷ, :Curve => :Supply) |> Curve
 
-plot(Demand, color = 1)
-plot!(Demand₀, color = 2)
+plot(Supply, color = 1)
+plot!(Supply₀, color = 2)
+xlabel!("Quantity")
+ylabel!("Price")
+
