@@ -2,7 +2,7 @@ using Pkg
 Pkg.activate(".")
 
 # Packages and functions: 
-using Distributions, Embeddings, StatsBase
+using Distributions, Embeddings, StatsBase, LaTeXStrings
 using EmpiricalCopulas, Chain, DataFramesMeta, ForwardDiff, Interpolations, BivariateCopulas
 
 include("SampleScript\\Includes.jl")
@@ -12,30 +12,83 @@ include("DiscretizedDistributions.jl")
 
 
 # Get Random Date 
-date = rand(Date(2022,1,1):Day(1):Date(2022,11,23))
-hour = rand(1:24)
+date = Date(2022,1,1)
+hour = 12
+# date = rand(Date(2022,1,1):Day(1):Date(2022,11,23))
+# hour = rand(1:24)
 
 # Get the curves: 
 S = Curve(get_data(date, hour, "Sell"))
 D = Curve(get_data(date, hour, "Buy"))
 
 # Show point pattern
-df = get_data(date, hour, "Sell")
+raw_df = get_data(date, hour, "Sell")
+
+lab = "Supply bids"
+ylab = "Quantity"
+xlab = "Price"
+
+plot1 = scatter(raw_df.Price, raw_df.Quantity, label = lab, ylabel = ylab, xlabel = xlab)
+
+unique_df = @chain raw_df begin
+    @subset @byrow :Quantity != 0
+    groupby([:Price, :Curve])
+    combine(:Quantity => sum => :Quantity)
+end
+
+plot2 = scatter(unique_df.Price, unique_df.Quantity, label = lab, ylabel = ylab, xlabel = xlab)
+
+df = @chain unique_df begin
+    @subset @byrow :Price != -500.0
+end
+
+plot3 = scatter(df.Price, df.Quantity, label = lab, ylabel = ylab, xlabel = xlab)
+
+# spatial plot
+p1 = scatter(raw_df.Price, raw_df.Quantity, label = string(lab, " raw"))
+p2 = scatter(unique_df.Price, unique_df.Quantity, label = string(lab, " unique"))
+p3 = scatter(df.Price, df.Quantity, xlabel = xlab, label = string(lab, " cleaned"))
+plot4 = plot(p1,p2,p3, layout=(3,1), size=(600,600), ylabel = ylab, marker=(:circle,4))
+
+p4 = scatter(unique_df.Price, unique_df.Quantity, label="")
+p5 = scatter(df.Price, df.Quantity, label="", xlabel=xlab)
+plot5 = plot(p4,p5, layout=(2,1), size=(600,600), ylabel = ylab, marker=(:circle,4))
+
+plot6 = plot(xlabel = xlab, ylabel = ylab)
+scatter!(raw_df.Price, raw_df.Quantity, label = string(lab, " raw"), marker = (:circle, 3), alpha = 1)
+scatter!(unique_df.Price, unique_df.Quantity, label = string(lab, " unique"), marker = (:circle, 3), alpha = 1)
+scatter!(df.Price, df.Quantity, label = string(lab, " cleaned"), marker = (:circle, 3), alpha = 0.5)
+ylims!(-25,800)
+
+savefig(plot5, "Figures/supply_bids.pdf")
+
+# Show point pattern price
+
+df.Price
+scatter(raw_df.Price, marker = (:circle, 3), alpha = 0.5, label = "Raw prices ordered")
+scatter!(df.Price, marker = (:circle, 3), alpha = 0.5, label = "Prices ordered")
+plot6 = scatter(df.Price, marker = (:circle, 3), alpha = 0.5, label = "Prices ordered")
+plot7 = scatter(
+    df.Price, zero, 
+    alpha = 0.5, label = "Prices",
+    framestyle = :zerolines,
+    yaxis = false, ylims = (-0.8,1.2), 
+    markerstrokewidth = 10, 
+    marker = (:vline, 10),
+    size = (600,180),
+    bottom_margin=5mm,
+    top_margin=2mm,
+    left_margin=-2mm,
+    right_margin=3mm
+)
+savefig(plot7, "Figures/prices_pp.pdf")
+
+# Show point pattern quantity
 
 df.Quantity
-
 scatter(df.Quantity, marker = (:circle, 2), alpha = 0.5, label = "Quantities ordered by price")
-# scatter(
-#     cumsum(df.Quantity), zero(df.Quantity), 
-#     alpha = 0.5, label = "Acc. Quantity",
-#     framestyle = :origin, 
-#     yaxis = false, ylims = (-1,1), 
-#     markerstrokewidth = 3, 
-#     marker = (:vline, 6),
-#     size = (600,200)
-# )
 scatter(
-    df.Quantity, zero(df.Quantity), 
+    df.Quantity, zero, 
     alpha = 0.5, label = "Quantity, supply bids.",
     framestyle = :origin, 
     yaxis = false, ylims = (-1,1), 
@@ -44,42 +97,11 @@ scatter(
     size = (600,200)
 )
 
-plot(cumsum(sort(df.Quantity)), 1:length(df.Quantity), lt = :steppost) 
-plot(1:length(df.Quantity), sort(df.Quantity), lt = :steppost)
-
-clean_df = filter(:Price => !=(-500.0), df)
-
-scatter(clean_df.Quantity, marker = (:circle, 2), alpha = 0.5, label = "Quantities ordered by price")
-scatter(
-    clean_df.Quantity, zero(clean_df.Quantity), 
-    alpha = 0.5, label = "Quantities",
-    framestyle = :origin, 
-    yaxis = false, ylims = (-1,1), 
-    markerstrokewidth = 3, 
-    marker = (:vline, 6),
-    size = (600,200)
-)
-
-scatter(df.Price, marker = (:circle, 2), alpha = 0.5, label = "Prices ordered")
-scatter(
-    df.Price, zero(df.Price), 
-    alpha = 0.5, label = "Price, supply bids.",
-    framestyle = :origin, 
-    yaxis = false, ylims = (-1,1), 
-    markerstrokewidth = 3, 
-    marker = (:vline, 6),
-    size = (600,200)
-)
-
-# spatial plot
-p1 = scatter(df.Price, df.Quantity, label = "Data", ylabel = "Quantity")
-p2 = scatter(clean_df.Price, clean_df.Quantity, label = "Cleaned data")
-plot(p1,p2, layout=(1,2), size=(800,400), xlabel = "Price", marker=(:circle,3))
 
 # Nonparametric estimation of the intensity
 
 from_date = Date(2022,1,1)
-to_date = Date(2022,1,5)
+to_date = Date(2022,1,1)
 dates = from_date:Day(1):to_date
 hours = 12
 side = "Sell"
@@ -92,26 +114,29 @@ point_process = "Price"
 comb_prices = CombinePriceDF(dates, hours, side)
 price_pp = comb_prices.DF.Price
 CumuIntensity = PWLinearEstimator((pp = price_pp, k = comb_prices.k, n = comb_prices.n))
-
-plot(price_pp, CumuIntensity, label = "Λ(t)")
-
-scatter!(price_pp, zero(price_pp))
-histogram(CumuIntensity.(price_pp))
-
 EstIntensity = DifferentiatePWLinear(price_pp, CumuIntensity)
-plot(price_pp, EstIntensity, lt = :steppost, label = "λ(t)")
-xlims!(-5,100)
 
-more_unique = unique(round.(price_pp, digits = 0))
+p6 = plot(price_pp, CumuIntensity, label=L"\hat\Lambda(p)")
+scatter!(price_pp, zero, color=1)
 
-EstIntensity2 = DifferentiatePWLinear(more_unique, CumuIntensity)
-plot(more_unique, EstIntensity2, lt = :steppost)
-xlims!(-5,100)
+plot(price_pp, EstIntensity, lt = :steppost, label=L"\hat\lambda(p)")
+p7 = plot(EstIntensity, xlims=extrema(price_pp).*1.05, label=L"\hat\lambda(p)")
+xlabel!("Price")
+# scatter!(price_pp, zero), color=1)
+# plot!(xlim=(-5,50), ylim=(-1,10))
+
+plot8 = plot(p6,p7, layout=(2,1), size=(600,600), ylabel="Intensity")
+
+# more_unique = unique(round.(price_pp, digits = 0))
+
+# EstIntensity2 = DifferentiatePWLinear(more_unique, CumuIntensity)
+# plot(more_unique, EstIntensity2, lt = :steppost)
+# xlims!(-5,100)
 
 # Test model
 
 s = CumuIntensity.(price_pp)
-s = CumuIntensity.(more_unique)
+# s = CumuIntensity.(more_unique)
 Δs = [s[1], diff(s)...]
 histogram(Δs, normalize = true, label = "Δsₖ")
 plot!(t -> (t ≥ 0)*exp(-t), label = "PDF of Standard Exponential")
@@ -126,23 +151,23 @@ ylabel!("Exponential Distribution")
 tₙ = price_pp[price_pp .!== -0.0]
 # tₙ = more_unique[more_unique .!== -0.0]
 
-result = OgataThinning(tₙ, EstIntensity)
-result.hom_sample
-result.sim
+ogata = OgataThinning(tₙ, EstIntensity)
+ogata.hom_sample
+ogata.sim
 
-plot(tₙ, EstIntensity, lt = :steppost, label = "λ(t)")
-scatter!(result.hom_sample, zero, alpha = 0.3, marker = (:circle,2), markerstrokewidth = 0, label = "Hom. PP")
-scatter!(result.sim, zero, marker = (:circle,2), label = "Thinned PP")
+plot(EstIntensity, xlims=extrema(price_pp).*1.05, label=L"\hat\lambda(p)")
+scatter!(ogata.hom_sample, zero, alpha = 0.3, marker = (:circle,3), markerstrokewidth = 0, label = "Hom. PP")
+scatter!(ogata.sim, zero, marker = (:circle,3), label = "Thinned PP")
 
 scatter(tₙ, zero, alpha = 0.5, markerstrokewidth = 0, framestyle = :origin, label = "Data")
 ylims!(-1,1)
-scatter!(result.sim, zero, alpha = 0.5, markerstrokewidth = 0, label = "Simulation")
+scatter!(ogata.sim, zero, alpha = 0.5, markerstrokewidth = 0, label = "Simulation")
 
 bins = tₙ[begin]:((tₙ[end]-tₙ[begin])/100):tₙ[end]
 histogram(tₙ, bins = bins, alpha = 0.7, label = "Data")
-histogram!(result.sim, bins = bins, alpha = 0.7, label = "Simulation")
+histogram!(ogata.sim, bins = bins, alpha = 0.7, label = "Simulation")
 
-length(result.sim)
+length(ogata.sim)
 length(tₙ)/(length(dates)*length(hours))
 
 
@@ -160,12 +185,8 @@ plot(price_pp, CumuIntensity)
 plot!(MollCumuIntensity)
 plot!(MollIntensity)
 
-plot(price_pp, MollIntensity)
-plot!(more_unique, MollIntensity)
-
-plot(more_unique, MollIntensity, label = "Mollified intensity")
-# plot!(price_pp, EstIntensity, alpha = 0.5)
-plot!(more_unique, EstIntensity2, alpha = 0.5, label = "Intensity")
+plot(EstIntensity, xlims=extrema(price_pp).*1.05, label=L"\hat\lambda(p)")
+plot!(MollIntensity)
 xlims!(-5,500)
 
 # Test mollified intensity
@@ -186,21 +207,21 @@ ylabel!("Exponential Distribution")
 
 # Resample and validate mollified intensity
 
-result_moll = OgataThinning(tₙ, MollIntensity)
+ogata_moll = OgataThinning(tₙ, MollIntensity)
 
-plot(tₙ, MollIntensity, lt = :steppost, label = "λ(t)")
-scatter!(result_moll.hom_sample, zero, alpha = 0.3, marker = (:circle,2), markerstrokewidth = 0, label = "Hom. PP")
-scatter!(result_moll.sim, zero, marker = (:circle,2), label = "Thinned PP")
+plot(tₙ, MollIntensity, label=L"\hat\lambda(p)")
+scatter!(ogata_moll.hom_sample, zero, alpha = 0.3, marker = (:circle,3), markerstrokewidth = 0, label = "Hom. PP")
+scatter!(ogata_moll.sim, zero, marker = (:circle,3), label = "Thinned PP")
 
 scatter(tₙ, zero, alpha = 0.5, markerstrokewidth = 0, framestyle = :origin, label = "Data")
 ylims!(-1,1)
-scatter!(result_moll.sim, zero, alpha = 0.5, markerstrokewidth = 0, label = "Simulation")
+scatter!(ogata_moll.sim, zero, alpha = 0.5, markerstrokewidth = 0, label = "Simulation")
 
 bins = tₙ[begin]:((tₙ[end]-tₙ[begin])/100):tₙ[end]
 histogram(tₙ, bins = bins, alpha = 0.7, label = "Data")
-histogram!(result_moll.sim, bins = bins, alpha = 0.7, label = "Simulation")
+histogram!(ogata_moll.sim, bins = bins, alpha = 0.7, label = "Simulation")
 
-length(result_moll.sim)
+length(ogata_moll.sim)
 length(tₙ)/(length(dates)*length(hours))
 
 

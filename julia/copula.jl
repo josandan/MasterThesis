@@ -2,7 +2,7 @@ using Pkg
 Pkg.activate(".")
 
 # Packages and functions: 
-using Distributions, Embeddings, StatsBase
+using Distributions, Embeddings, StatsBase, LaTeXStrings
 using EmpiricalCopulas, Chain, DataFramesMeta, ForwardDiff, Interpolations, BivariateCopulas, DiscretizedCopulas
 
 include("SampleScript\\Includes.jl")
@@ -13,7 +13,7 @@ include("DiscretizedDistributions.jl")
 
 
 from_date = Date(2022,1,1)
-to_date = Date(2022,1,5)
+to_date = Date(2022,1,1)
 dates = from_date:Day(1):to_date
 hours = 12
 side = "Sell"
@@ -60,7 +60,7 @@ gradient(C, [0.5,0.5])
 Z = [pdf(C,[u,v]) for u in LinRange(0.01,0.99,101), v in LinRange(0.01,0.99,101)]
 heatmap(Z)
 
-W = rand(C, 739)' 
+W = rand(C, n)' 
 Û = W[:,1] 
 V̂ = W[:,2] 
 

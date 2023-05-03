@@ -254,10 +254,11 @@ function InverseDensity(Λₙ::AbstractVector{R}, tₙ::AbstractVector{Q}) where
         if i == 1
             return 0
         elseif i == length(tₙ) + 1
-            a = (Λₙ[i-1] - Λₙ[i-2])/(tₙ[i-1] - tₙ[i-2])
-            b = Λₙ[i-2]
-            c = tₙ[i-2]
-            return (Λₙ[i-1] + a*c - b)/a
+            # a = (Λₙ[i-1] - Λₙ[i-2])/(tₙ[i-1] - tₙ[i-2])
+            # b = Λₙ[i-2]
+            # c = tₙ[i-2]
+            # return (Λₙ[i-1] + a*c - b)/a
+            return Inf
         elseif Λₙ[i] == Λₙ[i-1]
             return Λₙ[i-1]
         else
@@ -290,3 +291,18 @@ end
 #         end
 # 	end
 # end
+
+function SimulateByInversion(Λ⁻¹::Function, T::Real)
+    uᵢ = 0
+    # uₙ = Float64[]
+    tₙ = Float64[]
+    t = 0
+    while t ≤ T
+        u = rand(Exponential(1), 1)[1]
+        uᵢ = uᵢ + u
+        # uₙ = push!(uₙ, uᵢ)
+        t = Λ⁻¹(uᵢ)
+        t ≤ T && push!(tₙ, t)
+    end
+    return tₙ
+end

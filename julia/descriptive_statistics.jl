@@ -12,7 +12,7 @@ hour = rand(1:24)
 
 df = get_data(date, hour, "Sell")
 
-# All dates and hours
+# All dates and hour 12
 
 from_date = Date(2022,1,1)
 to_date = Date(2022,10,23)
@@ -20,43 +20,50 @@ dates = from_date:Day(1):to_date
 hours = 12
 side = "Sell"
 
-# Investigating the bids with very high quantities
+@time data = CombineDF(dates, hours, side)
 
-data = DataFrame([[],[],[],[],[],[]], ["Price", "Quantity", "Side", "Date", "Hour", "Curve"])
-@time for date = dates
-    for hour in hours
-        df = get_data(date, hour, side)
-        max_quantities = filter(:Price => ==(-500.0), df)
-        append!(data, max_quantities)
-    end
+DF = @chain data begin
+    @subset @byrow :Quantity != 0
+    groupby([:Date, :Hour, :Price, :Curve])
+    combine(:Quantity => sum => :Quantity)
 end
 
-filter(:Price => ==(-500.0), df)
-filter(:Quantity => >=(5000), df)
+# Investigating the bids with very high quantities
 
-scatter(data.Quantity, data.Price, alpha = 0.6, markerstrokewidth = 0)
+min_price_df = @chain DF begin
+    @subset @byrow :Price == -500.0
+end
 
-# Histogram: Bids priced at -500€ for hour 12
-histogram(data.Quantity, bins = 50, label = "")
+df = @chain DF begin
+    @subset @byrow :Price != -500.0
+end
+
+scatter(min_price_df.Quantity, min_price_df.Price, alpha = 0.6, markerstrokewidth = 0)
+
+# Histogram: quantities, hour 12
+h1 = histogram(min_price_df.Quantity, bins = 50, label = "Bids priced at -500 euro")
 ylabel!("Frequency")
 xlabel!("Quantity")
-
-# Histogram: Total quantity pr day with price -500€, hour 12
-sum_pr_day = combine(groupby(data, :Date), :Quantity => sum)
-histogram(sum_pr_day.Quantity_sum, bins = 50, label = "")
+h2 = histogram(df.Quantity, bins = 200, label = "All other bids")
 ylabel!("Frequency")
 xlabel!("Quantity")
+plot1 = plot(h1,h2, layout=(2,1), size=(600,600))
+
+savefig(plot1, "Figures/hist_quantity.pdf")
+
+min_price_df.Quantity |> extrema
+df.Quantity |> extrema
 
 # Plot: Total quantity pr day with price -500€, hour 12
-scatter(dates, sum_pr_day.Quantity_sum, label = "Data")
+plot2 = scatter(dates, min_price_df.Quantity, label = "Data")
 ylabel!("Quantity")
 xlabel!("Date")
-p = Polynomials.fit([1.:length(sum_pr_day.Quantity_sum)...], sum_pr_day.Quantity_sum, 2)
-plot!(dates, p.([1.:length(sum_pr_day.Quantity_sum)...]), lw = 2, ls = :dash, label = "2nd order polynomial")
-p = Polynomials.fit([1.:length(sum_pr_day.Quantity_sum)...], sum_pr_day.Quantity_sum, 3)
-plot!(dates, p.([1.:length(sum_pr_day.Quantity_sum)...]), lw = 2, ls = :dash, label = "3rd order polynomial")
+p = Polynomials.fit([1.:length(min_price_df.Quantity)...], min_price_df.Quantity, 2)
+plot!(dates, p.([1.:length(min_price_df.Quantity)...]), lw = 2, ls = :dash, label = "2nd order polynomial")
+p = Polynomials.fit([1.:length(min_price_df.Quantity)...], min_price_df.Quantity, 3)
+plot!(dates, p.([1.:length(min_price_df.Quantity)...]), lw = 2, ls = :dash, label = "3rd order polynomial")
 
-data.Quantity |> maximum
+savefig(plot2, "Figures/minus500_quantity.pdf")
 
 # Cov matrix
 
@@ -72,38 +79,37 @@ covellipse!(μ, 10 * Σ)
 
 # Investigating the number of bids
 
-n_bids = Float64[]
-@time for date = dates
-    for hour in hours
-        df = get_data(date, hour, side)
-        n = filter(:Price => !=(-500.0), df) |> nrow
-        append!(n_bids, n)
-    end
+n_bids = @chain df begin
+    groupby([:Date, :Hour, :Curve])
+    combine(nrow => :n)
 end
+extrema(n_bids.n)
 
-scatter(dates, n_bids, label = "")
+p1 = scatter(dates, n_bids.n, label = "")
 xlabel!("Date")
 ylabel!("Number of bids")
-
-histogram(n_bids, bins = 175:25:450, label = "")
+p2 = histogram(n_bids.n, bins = 120:10:410, label = "")
 xlabel!("Number of bids")
 ylabel!("Frequency")
+plot3 = plot(p1,p2, layout=(2,1), size=(600,600))
+
+savefig(plot3, "Figures/number_of_bids.pdf")
 
 # Investigating the total supplied quantity // market volume
 
-total_quantity = Float64[]
-@time for date = dates
-    for hour in hours
-        df = get_data(date, hour, side)
-        tq = filter(:Price => !=(-500.0), df).Quantity |> sum
-        append!(total_quantity, tq)
-    end
+market_quantity = @chain df begin
+    groupby([:Date, :Hour, :Curve])
+    combine(:Quantity => sum => :MarketQuantity)
 end
+extrema(market_quantity.MarketQuantity)
 
-scatter(dates, total_quantity, label = "")
+p3 = scatter(dates, market_quantity.MarketQuantity, label = "")
 xlabel!("Date")
 ylabel!("Volume")
-
-histogram(total_quantity, label = "")
+p4 = histogram(market_quantity.MarketQuantity, bins = 5000:1000:35000, label = "")
 xlabel!("Volume")
 ylabel!("Frequency")
+plot4 = plot(p3,p4, layout=(2,1), size=(600,600))
+
+savefig(plot4, "Figures/market_quantity.pdf")
+
