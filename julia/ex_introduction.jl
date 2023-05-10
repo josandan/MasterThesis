@@ -39,7 +39,7 @@ ylabel!("Price")
 
 savefig(plot3, "Figures/ex_impact.pdf")
 
-[𝐏(S ⊕ˢ (p,q),D)] - [𝐏(S,D)]
+𝐏(S ⊕ˢ (p,q),D) - 𝐏(S,D)
 # 2000 MW -30, 1000 MW -7.3, 500 MW -4.1, 100 MW 0, 10 MW 0
 
 p,q = (80., 1000.)

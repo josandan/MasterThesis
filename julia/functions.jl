@@ -1,5 +1,13 @@
 # functions
 
+get_unique_df = function (raw_df)
+    @chain raw_df begin
+        @subset @byrow :Quantity != 0
+        groupby([:Price, :Curve])
+        combine(:Quantity => sum => :Quantity)
+    end
+end
+
 function CombineRealizations(
     from_date::Date, to_date::Date, 
     hours::Union{AbstractVector{N}, Int64}, 
@@ -59,7 +67,7 @@ function CombinePriceDF(
     end
 
     k = length(dates) * length(hours)
-    n = nrow(cleaned_df)
+    n = k==1 ? nrow(grouped_df) : nrow(cleaned_df)
 
     return (DF = sort(grouped_df, :Price), k = k, n = n)
 end
@@ -239,8 +247,8 @@ function GetDensity(point_pattern::Vector{Float64}, k::Real, n::Real, mollifier_
     M = MollCumuIntensity.x[end]
     B = MollCumuIntensity.x[begin]
     x = MollCumuIntensity.x
-    Fₓ = map(x -> (MollCumuIntensity(x)-MollCumuIntensity(B))/(MollCumuIntensity(M)-MollCumuIntensity(B)), MollCumuIntensity.x)
-    # Fₓ = map(x -> (MollCumuIntensity(x))/(MollCumuIntensity(M)), MollCumuIntensity.x)
+    # Fₓ = map(x -> (MollCumuIntensity(x)-MollCumuIntensity(B))/(MollCumuIntensity(M)-MollCumuIntensity(B)), MollCumuIntensity.x)
+    Fₓ = map(x -> (MollCumuIntensity(x))/(MollCumuIntensity(M)), MollCumuIntensity.x)
 
     return DiscretizedDistribution(LinearEmbedding(Fₓ,x))
 end

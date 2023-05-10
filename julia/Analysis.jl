@@ -116,8 +116,14 @@ price_pp = comb_prices.DF.Price
 CumuIntensity = PWLinearEstimator((pp = price_pp, k = comb_prices.k, n = comb_prices.n))
 EstIntensity = DifferentiatePWLinear(price_pp, CumuIntensity)
 
-p6 = plot(price_pp, CumuIntensity, label=L"\hat\Lambda(p)")
-scatter!(price_pp, zero, color=1)
+p6 = plot(price_pp, CumuIntensity, label=L"\hat\Lambda(p)", color=1)
+scatter!(price_pp, zero, color=1, label = L"p_1,\ldots,p_n", marker = (:circle, 4))
+# scatter!(
+#     df.Price, zero, color=1,
+#     alpha = 0.5, label = L"p_1,\ldots,p_n", 
+#     markerstrokewidth = 1, 
+#     marker = (:vline, 5)
+# )
 
 plot(price_pp, EstIntensity, lt = :steppost, label=L"\hat\lambda(p)")
 p7 = plot(EstIntensity, xlims=extrema(price_pp).*1.05, label=L"\hat\lambda(p)")
@@ -181,13 +187,17 @@ length(tₙ)/(length(dates)*length(hours))
 MollCumuIntensity = ϕᵋ(CumuIntensity, price_pp)
 MollIntensity = ∂(ϕᵋ)(CumuIntensity, price_pp)
 
-plot(price_pp, CumuIntensity)
-plot!(MollCumuIntensity)
-plot!(MollIntensity)
+p8 = plot(price_pp, CumuIntensity, label=L"\hat\Lambda(p)", legend=:right)
+plot!(MollCumuIntensity, label=L"\hat\Lambda(p)*\varphi_\varepsilon")
+scatter!(price_pp, zero, color=1, label = L"p_1,\ldots,p_n", marker = (:circle, 3), markerstrokewidth=0.5)
+p9 = plot(EstIntensity, xlims=extrema(price_pp).*1.05, label=L"\hat\lambda(p)")
+plot!(MollIntensity, label=L"\partial(\hat\lambda(p)*\varphi_\varepsilon)")
+xlabel!("Price")
+# xlims!(-5,500)
 
-plot(EstIntensity, xlims=extrema(price_pp).*1.05, label=L"\hat\lambda(p)")
-plot!(MollIntensity)
-xlims!(-5,500)
+plot9 = plot(p8,p9, layout=(2,1), size=(600,600), ylabel="Intensity")
+
+savefig(plot9, "Figures/price_intensity.pdf")
 
 # Test mollified intensity
 
