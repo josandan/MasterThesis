@@ -66,10 +66,32 @@ function CombinePriceDF(
         combine(:Quantity => sum => :Quantity)
     end
 
+    fixed_bid = @chain DF begin
+        @subset @byrow :Price == -500.0
+        groupby([:Price, :Curve])
+        combine(:Quantity => sum => :Quantity)
+    end
+
     k = length(dates) * length(hours)
     n = k==1 ? nrow(grouped_df) : nrow(cleaned_df)
 
-    return (DF = sort(grouped_df, :Price), k = k, n = n)
+    return (DF = sort(grouped_df, :Price), k = k, n = n, fixed_bid = fixed_bid)
+end
+
+function GetOtherCurve(
+    dates::StepRange{Date, Day}, 
+    hours::Union{AbstractVector{N}, Int64}, 
+    side::String
+) where {N}
+    DF = CombineDF(dates, hours, side)
+
+    grouped_df = @chain DF begin
+        @subset @byrow :Quantity != 0
+        groupby([:Price, :Curve])
+        combine(:Quantity => sum => :Quantity)
+    end
+
+    return (DF = sort(grouped_df, :Price) |> Curve)
 end
 
 function PWLinearEstimator(comb_realization::NamedTuple{(:pp, :k, :n), Tuple{Vector{Float64}, Int64, Int64}})
