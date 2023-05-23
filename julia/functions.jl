@@ -1,5 +1,9 @@
 # functions
 
+zero2 = x -> -0.02
+zero5 = x -> -0.05
+half = x -> 0.5
+
 get_unique_df = function (raw_df)
     @chain raw_df begin
         @subset @byrow :Quantity != 0
@@ -68,6 +72,35 @@ function CombinePriceDF(
 
     fixed_bid = @chain DF begin
         @subset @byrow :Price == -500.0
+        groupby([:Price, :Curve])
+        combine(:Quantity => sum => :Quantity)
+    end
+
+    k = length(dates) * length(hours)
+    n = k==1 ? nrow(grouped_df) : nrow(cleaned_df)
+
+    return (DF = sort(grouped_df, :Price), k = k, n = n, fixed_bid = fixed_bid)
+end
+
+function CombineDemandDF(
+    dates::StepRange{Date, Day}, 
+    hours::Union{AbstractVector{N}, Int64}, 
+    side::String
+) where {N}
+    DF = CombineDF(dates, hours, side)
+
+    cleaned_df = @chain DF begin
+        @subset @byrow :Quantity <= 5000.0
+        @subset @byrow :Quantity != 0
+    end
+
+    grouped_df = @chain cleaned_df begin
+        groupby([:Price, :Curve])
+        combine(:Quantity => sum => :Quantity)
+    end
+
+    fixed_bid = @chain DF begin
+        @subset @byrow :Quantity > 5000.0
         groupby([:Price, :Curve])
         combine(:Quantity => sum => :Quantity)
     end
@@ -259,6 +292,18 @@ function RestrictFun(l::LinearEmbedding)
     return LinearEmbedding(f,x)
 end
 
+function GetIntensities(point_pattern::Vector{Float64}, k::Real, n::Real, mollifier_tolerance::Real)
+    CumuIntensity = PWLinearEstimator((pp = point_pattern, k = k, n = n))
+    # EstIntensity = DifferentiatePWLinear(point_pattern, CumuIntensity)
+    ϕᵋ = Mollifier(mollifier_tolerance)
+    MollCumuIntensity = ϕᵋ(CumuIntensity, point_pattern)
+    MollIntensity = ∂(ϕᵋ)(CumuIntensity, point_pattern)
+    MollInvCumuIntensity = InverseDensity(MollCumuIntensity.(point_pattern), point_pattern)
+    # MollInvCumuIntensity = ϕᵋ(InverseDensity(CumuIntensity, point_pattern), point_pattern)
+    
+    return (λ = MollIntensity, Λ = MollCumuIntensity, Λ⁻¹ = MollInvCumuIntensity)
+end
+
 function GetDensity(point_pattern::Vector{Float64}, k::Real, n::Real, mollifier_tolerance::Real)
     CumuIntensity = PWLinearEstimator((pp = point_pattern, k = k, n = n))
     # EstIntensity = DifferentiatePWLinear(point_pattern, CumuIntensity)
@@ -335,4 +380,13 @@ function SimulateByInversion(Λ⁻¹::Function, T::Real)
         t ≤ T && push!(tₙ, t)
     end
     return tₙ
+end
+
+function SimulateQuantity(sim_price, F_p::DiscretizedDistribution, G_q⁻¹::Function)
+    X̂ = sim_price
+    Û = cdf(F_p, X̂)
+    get_v = u -> h⁻¹(C, rand(), u)
+    V̂ = get_v.(Û)
+    Ŷ = G_q⁻¹(V̂)
+    return Ŷ
 end
