@@ -56,22 +56,63 @@ ylabel!("Change in price")
 
 savefig(plot4, "Figures/ex_price_changes.pdf")
 
-plot5 = plot(xlabel="Bid quantity", ylabel="Change in price", color_palette = palette(:lightrainbow, 10))
-for i = 1:10
+p = -300.
+hours = 12
+PriceChange = DataFrame(
+    Day=Int64[],
+    Q100=Float64[], Q200=Float64[], Q300=Float64[], Q400=Float64[], Q500=Float64[], 
+    Q600=Float64[], Q700=Float64[], Q800=Float64[], Q900=Float64[], Q1000=Float64[]
+)
+for i = 1:31
     date = Date(2022,1,i)
+    S = Curve(get_data(date, hours, "Sell"))
+    D = Curve(get_data(date, hours, "Buy"))
+
+    result = Float64[]
+    for q in 100.:100:1000
+        r = 𝐏(S ⊕ˢ (p,q),D) - 𝐏(S,D)
+        push!(result,r)
+    end
+    push!(PriceChange, [i,result...])
+end
+
+plot5 = plot(xlabel="Day in January", ylabel="Change in price", color_palette = palette(:lightrainbow, 10))
+for i in 1:10
+    plot!(PriceChange[:,string("Q",i*100)], label=string(i*100,"MW"), color=i)
+end
+plot!()
+
+savefig(plot5, "Figures/ex_price_changes_jan.pdf")
+
+
+
+PriceChange = DataFrame(
+    Hour=Int64[],
+    Q100=Float64[], Q200=Float64[], Q300=Float64[], Q400=Float64[], Q500=Float64[], 
+    Q600=Float64[], Q700=Float64[], Q800=Float64[], Q900=Float64[], Q1000=Float64[]
+)
+for hour = 1:24
+    date = Date(2022,1,1)
     S = Curve(get_data(date, hour, "Sell"))
     D = Curve(get_data(date, hour, "Buy"))
 
     result = Float64[]
-    for q in 1.:2000
+    for q in 100.:100:1000
         r = 𝐏(S ⊕ˢ (p,q),D) - 𝐏(S,D)
         push!(result,r)
     end
-    plot!(1.:2000, -result, label=string(date))
+    push!(PriceChange, [hour ,result...])
+end
+
+plot6 = plot(xlabel="Hour", ylabel="Change in price", color_palette = palette(:lightrainbow, 10))
+for i in 1:10
+    plot!(PriceChange[:,string("Q",i*100)], label=string(i*100,"MW"), color=i)
 end
 plot!()
 
-savefig(plot5, "Figures/ex_price_changes_10d.pdf")
+savefig(plot6, "Figures/ex_price_changes_hours.pdf")
+
+
 
 palette([:orange, :red, :purple, :blue], 10)
 palette(:lightrainbow, 10)

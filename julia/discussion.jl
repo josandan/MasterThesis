@@ -2,14 +2,11 @@ using Pkg
 Pkg.activate(".")
 
 # Packages and functions: 
-using Distributions, Embeddings, StatsBase, LaTeXStrings, Latexify
-using EmpiricalCopulas, Chain, DataFramesMeta, ForwardDiff, Interpolations, BivariateCopulas, DiscretizedCopulas
-
-include("SampleScript\\Includes.jl")
+include("Includes.jl")
 include("Mollifiers.jl")
-include("functions.jl")
 include("DiscretizedDistributions.jl")
-
+include("BetaCopula.jl")
+include("functions.jl")
 
 from_date = Date(2022,1,1)
 to_date = Date(2022,1,1)
@@ -26,20 +23,13 @@ D = GetOtherCurve(dates, hours, "Buy")
 
 Supply = Curve(bid_df)
 𝐛 = bids(Supply)
-n = comb_prices.n/comb_prices.k |> round
-n = convert(Int, n)
-
-# Plot Bids 
-scatter(𝐛, label = "") 
-xlabel!("Price") 
-ylabel!("Quantity")
+n = convert(Int, round(comb_prices.n/comb_prices.k))
 
 mollifier_tolerance = 10.
 
 F_p = GetDensity(price_pp, comb_prices.k, comb_prices.n, mollifier_tolerance)
 # F_p = ecdf(price_pp)
 F_q = ecdf(quantity_pp)
-
 F_p⁻¹ = InverseDensity(cdf(F_p, price_pp), price_pp)
 # F_p⁻¹ = x -> quantile(price_pp, x)
 F_q⁻¹ = x -> quantile(quantity_pp, x)
@@ -51,7 +41,7 @@ p11 = plot([0.01:0.01:1...], F_p⁻¹, label=L"\hat F^{-1}(p)")
 plot!(F_q⁻¹, label=L"\hat F^{-1}(q)")
 plot!(xlabel="Cumulative probability", ylabel="Price and quantity")
 plot_CDFs = plot(p10,p11, layout=(1,2), size=(600,300))
-# savefig(plot_CDFs, "Figures/estimated_cdfs.pdf")
+# savefig(plot_CDFs, "Figures/estimated_cdfs_w_inv.pdf")
 
 U = cdf(F_p, price_pp)
 V = F_q(quantity_pp)
@@ -81,30 +71,47 @@ Ŷ = F_q⁻¹.(V̂)
 plot_sim_bids = scatter(𝐛, label = "True supply bids") 
 xlabel!("Price") 
 ylabel!("Quantity") 
-scatter!(X̂,Ŷ, label = "Simulated supply bids")
-# savefig(plot_sim_bids, "Figures/sim_supply_bids.pdf")
+scatter!(X̂,Ŷ, label = "Inverse transform simulation")
+# savefig(plot_sim_bids, "Figures/sim_supply_bids_alt.pdf")
 
 Supply₀ = DataFrame(:Price => X̂, :Quantity => Ŷ, :Curve => :Supply) |> Curve
 
 plot(Supply, color = 1, label = "True supply curve")
-plot!(Supply₀, color = 2, label = "Simulated supply curve")
+plot!(Supply₀, color = 2, label = "Inverse transform simulation")
 xlabel!("Quantity")
 ylabel!("Price")
 
-# Plot 10 realizations
-plot_10sim = plot(xlabel="Quantity", ylabel="Price")
-for i in 2:11
+# Plot 100 realizations
+
+plot_its_curves = plot(xlabel="Quantity", ylabel="Price")
+plot!(Supply₀, color = 2, alpha = 0.1, label = "Inverse transform simulation")
+map(2:100) do _
     W = rand(C, n)' 
     Û = W[:,1] 
     V̂ = W[:,2] 
     X̂ = F_p⁻¹.(Û) 
     Ŷ = F_q⁻¹.(V̂) 
     Supply₀ = DataFrame(:Price => X̂, :Quantity => Ŷ, :Curve => :Supply) |> Curve
-    plot!(Supply₀, color = i, alpha = 0.3, label = "Simulated supply curve")
+    plot!(Supply₀, color = 2, alpha = 0.1, label = "")
 end
-plot!(Supply, color = 1, label = "True supply curve")
+plot!(Supply, color = 1, label = "True supply curve", markerstrokewidth=0.5)
+# savefig(plot_its_curves, "Figures/100_simulated_curves_alt.pdf")
 
-# savefig(plot_10sim, "Figures/10_sim_ex_supply_curves.pdf")
+
+sum_q = Float64[]
+for _ in 1:1000
+    W = rand(C, n)' 
+    Û = W[:,1] 
+    V̂ = W[:,2] 
+    X̂ = F_p⁻¹.(Û) 
+    Ŷ = F_q⁻¹.(V̂) 
+    push!(sum_q, sum(Ŷ))
+end
+m = mean(sum_q)
+quantile(sum_q, 0.025)
+quantile(sum_q, 0.975)
+sum(quantity_pp)
+
 
 # Calculate error between true curve and simulated curves
 # DF = transform(bid_df, :Quantity => cumsum => :Quantity)

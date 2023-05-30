@@ -2,13 +2,11 @@ using Pkg
 Pkg.activate(".")
 
 # Packages and functions: 
-using Distributions, Embeddings, StatsBase, LaTeXStrings
-using EmpiricalCopulas, Chain, DataFramesMeta, ForwardDiff, Interpolations, BivariateCopulas
-
-include("SampleScript\\Includes.jl")
+include("Includes.jl")
 include("Mollifiers.jl")
-include("functions.jl")
 include("DiscretizedDistributions.jl")
+include("BetaCopula.jl")
+include("functions.jl")
 
 # Nonparametric estimation of the intensity
 
@@ -17,6 +15,7 @@ to_date = Date(2022,1,1)
 dates = from_date:Day(1):to_date
 hours = 12
 side = "Sell"
+# side = "Buy"
 mollifier_tolerance = 10
 
 comb_prices = CombinePriceDF(dates, hours, side)
@@ -49,10 +48,10 @@ plot9 = plot(p8,p9, layout=(2,1), size=(600,600), ylabel="Intensity")
 
 s = Λₚ.(pₙ)
 Δs = [s[1], diff(s)...]
-h20 = histogram(Δs, normalize = true, label=L"\Delta \tau")
-plot!(t -> (t ≥ 0)*exp(-t), label=L"PDF\,\, of\,\, Exp(1)")
-plot!(title=L"Testing\,\, \hat\Lambda(p)*\varphi_\epsilon",title_align=:left)
-q20 = qqplot(Δs, Exponential(1), xlabel="Δτ", ylabel="Exp(1)", markerstrokewidth=0.5)
+h20 = histogram(Δs, normalize = true, label=L"\Delta u")
+plot!(t -> (t ≥ 0)*exp(-t), label=L"\mathrm{PDF\,\, of }\,\, Exp(1)")
+plot!(title=L"\mathrm{Testing }\,\, \hat\Lambda(p)*\varphi_\epsilon",title_align=:left)
+q20 = qqplot(Δs, Exponential(1), xlabel="Δu", ylabel="Exp(1)", markerstrokewidth=0.5)
 plot20 = plot(h20,q20, layout=(1,2), size=(700,300), bottom_margin=3mm)
 
 # savefig(plot20, "Figures/price_residual_analysis.pdf")
@@ -91,6 +90,8 @@ for _ in 1:1000
 end
 mean(ogata_length)
 mean(inv_length)
-1.96*std(ogata_length)
-1.96*std(inv_length)
+quantile(ogata_length, 0.025)
+quantile(ogata_length, 0.975)
+quantile(inv_length, 0.025)
+quantile(inv_length, 0.975)
 length(pₙ)/(length(dates)*length(hours))

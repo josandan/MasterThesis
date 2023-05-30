@@ -103,9 +103,9 @@ plot!(legend=:topleft, ylim=(-0.1,3.3))
 # true intensity with simulated points
 s = Λ.(sim_inv)
 Δs = [s[1], diff(s)...]
-h7 = histogram(Δs1, normalize = true, label=L"\Delta \tau", title=L"True\,\, \Lambda",title_align=:left)
-plot!(t -> (t ≥ 0)*exp(-t), label=L"PDF\,\, of\,\, Exp(1)")
-q7 = qqplot(Δs, Exponential(1), xlabel="Δτ", ylabel="Exp(1)", markerstrokewidth=0.5)
+h7 = histogram(Δs, normalize = true, label=L"\Delta u", title=L"\mathrm{True}\,\, \Lambda",title_align=:left)
+plot!(t -> (t ≥ 0)*exp(-t), label=L"\mathrm{PDF\,\, of}\,\, Exp(1)")
+q7 = qqplot(Δs, Exponential(1), xlabel="Δu", ylabel="Exp(1)", markerstrokewidth=0.5)
 
 # estimated intensities
 s1 = Λ_hat_inv.(sim_inv)
@@ -114,21 +114,21 @@ s3 = Λ_hat_ogata.(ogata.sim)
 Δs1 = [s1[1], diff(s1)...]
 Δs2 = [s2[1], diff(s2)...]
 Δs3 = [s3[1], diff(s3)...]
-h1 = histogram(Δs1, normalize = true, label=L"\Delta \tau", title=L"Testing\,\, \hat\Lambda \,\,(Inversion)",title_align=:left)
+h1 = histogram(Δs1, normalize = true, label=L"\Delta u", title=L"\mathrm{Testing}\,\, \hat\Lambda \,\,\mathrm{(Inversion)}",title_align=:left)
 xticks!(LinRange(minimum(Δs1),maximum(Δs1),3))
-plot!(t -> (t ≥ 0)*exp(-t), label=L"PDF\,\, of\,\, Exp(1)")
-h2 = histogram(Δs2, normalize = true, label=L"\Delta \tau", title=L"Testing\,\, \hat\Lambda \,\,(Lewis)",title_align=:left)
+plot!(t -> (t ≥ 0)*exp(-t), label=L"\mathrm{PDF\,\, of }\,\, Exp(1)")
+h2 = histogram(Δs2, normalize = true, label=L"\Delta u", title=L"\mathrm{Testing}\,\, \hat\Lambda \,\,\mathrm{(Lewis)}",title_align=:left)
 xticks!(LinRange(minimum(Δs2),maximum(Δs2),3))
-plot!(t -> (t ≥ 0)*exp(-t), label=L"PDF\,\, of\,\, Exp(1)")
-h3 = histogram(Δs3, normalize = true, label=L"\Delta \tau", title=L"Testing\,\, \hat\Lambda \,\,(Ogata)",title_align=:left)
+plot!(t -> (t ≥ 0)*exp(-t), label=L"\mathrm{PDF\,\, of }\,\, Exp(1)")
+h3 = histogram(Δs3, normalize = true, label=L"\Delta u", title=L"\mathrm{Testing}\,\, \hat\Lambda \,\,\mathrm{(Ogata)}",title_align=:left)
 xticks!(LinRange(minimum(Δs3),maximum(Δs3),3))
-plot!(t -> (t ≥ 0)*exp(-t), label=L"PDF\,\, of\,\, Exp(1)")
+plot!(t -> (t ≥ 0)*exp(-t), label=L"\mathrm{PDF\,\, of }\,\, Exp(1)")
 
-q1 = qqplot(Δs1, Exponential(1), xlabel="Δτ", ylabel="Exp(1)", markerstrokewidth=0.5)
+q1 = qqplot(Δs1, Exponential(1), xlabel="Δu", ylabel="Exp(1)", markerstrokewidth=0.5)
 xticks!(LinRange(minimum(Δs1),maximum(Δs1),3))
-q2 = qqplot(Δs2, Exponential(1), xlabel="Δτ", ylabel="Exp(1)", markerstrokewidth=0.5)
+q2 = qqplot(Δs2, Exponential(1), xlabel="Δu", ylabel="Exp(1)", markerstrokewidth=0.5)
 xticks!(LinRange(minimum(Δs2),maximum(Δs2),3))
-q3 = qqplot(Δs3, Exponential(1), xlabel="Δτ", ylabel="Exp(1)", markerstrokewidth=0.5)
+q3 = qqplot(Δs3, Exponential(1), xlabel="Δu", ylabel="Exp(1)", markerstrokewidth=0.5)
 xticks!(LinRange(minimum(Δs3),maximum(Δs3),3))
 
 plot8 = plot(h1,q1,h2,q2,h3,q3, layout=(3,2), size=(800,800), right_margin=1cm)
@@ -141,19 +141,18 @@ s3 = Λ_moll_ogata.(ogata.sim)
 Δs1 = [s1[1], diff(s1)...]
 Δs2 = [s2[1], diff(s2)...]
 Δs3 = [s3[1], diff(s3)...]
-h4 = histogram(Δs1, normalize = true, label=L"\Delta \tau", title=L"Testing\,\, \hat\Lambda*\varphi_\epsilon \,\,(Inversion)",title_align=:left)
-plot!(t -> (t ≥ 0)*exp(-t), label=L"PDF\,\, of\,\, Exp(1)")
-h5 = histogram(Δs2, normalize = true, label=L"\Delta \tau", title=L"Testing\,\, \hat\Lambda*\varphi_\epsilon \,\,(Lewis)",title_align=:left)
-plot!(t -> (t ≥ 0)*exp(-t), label=L"PDF\,\, of\,\, Exp(1)")
-h6 = histogram(Δs3, normalize = true, label=L"\Delta \tau", title=L"Testing\,\, \hat\Lambda*\varphi_\epsilon \,\,(Ogata)",title_align=:left)
-plot!(t -> (t ≥ 0)*exp(-t), label=L"PDF\,\, of\,\, Exp(1)")
+h4 = histogram(Δs1, normalize = true, label=L"\Delta u", title=L"\mathrm{Testing}\,\, \hat\Lambda*\varphi_\epsilon \,\,\mathrm{(Inversion)}",title_align=:left)
+plot!(t -> (t ≥ 0)*exp(-t), label=L"\mathrm{PDF\,\, of }\,\, Exp(1)")
+h5 = histogram(Δs2, normalize = true, label=L"\Delta u", title=L"\mathrm{Testing }\,\, \hat\Lambda*\varphi_\epsilon \,\,\mathrm{(Lewis)}",title_align=:left)
+plot!(t -> (t ≥ 0)*exp(-t), label=L"\mathrm{PDF\,\, of }\,\, Exp(1)")
+h6 = histogram(Δs3, normalize = true, label=L"\Delta u", title=L"\mathrm{Testing }\,\, \hat\Lambda*\varphi_\epsilon \,\,\mathrm{(Ogata)}",title_align=:left)
+plot!(t -> (t ≥ 0)*exp(-t), label=L"\mathrm{PDF\,\, of }\,\, Exp(1)")
 
-q4 = qqplot(Δs1, Exponential(1), xlabel="Δτ", ylabel="Exp(1)", markerstrokewidth=0.5)
-q5 = qqplot(Δs2, Exponential(1), xlabel="Δτ", ylabel="Exp(1)", markerstrokewidth=0.5)
-q6 = qqplot(Δs3, Exponential(1), xlabel="Δτ", ylabel="Exp(1)", markerstrokewidth=0.5)
+q4 = qqplot(Δs1, Exponential(1), xlabel="Δu", ylabel="Exp(1)", markerstrokewidth=0.5)
+q5 = qqplot(Δs2, Exponential(1), xlabel="Δu", ylabel="Exp(1)", markerstrokewidth=0.5)
+q6 = qqplot(Δs3, Exponential(1), xlabel="Δu", ylabel="Exp(1)", markerstrokewidth=0.5)
 
 plot9 = plot(h4,q4,h5,q5,h6,q6, layout=(3,2), size=(800,800))
 
 savefig(plot9, "Figures/ex_moll_res_analysis.pdf")
 
-rand()

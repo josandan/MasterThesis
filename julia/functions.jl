@@ -382,7 +382,7 @@ function SimulateByInversion(Λ⁻¹::Function, T::Real)
     return tₙ
 end
 
-function SimulateQuantity(sim_price, F_p::DiscretizedDistribution, G_q⁻¹::Function)
+function SimulateQuantity(sim_price, F_p::DiscretizedDistribution, G_q⁻¹::Function, C)
     X̂ = sim_price
     Û = cdf(F_p, X̂)
     get_v = u -> h⁻¹(C, rand(), u)

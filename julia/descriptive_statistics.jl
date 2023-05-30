@@ -2,9 +2,7 @@ using Pkg
 Pkg.activate(".")
 
 # Packages and functions: 
-using Distributions, Embeddings, StatsBase, Polynomials
-using EmpiricalCopulas, Chain, DataFramesMeta, ForwardDiff, Interpolations, BivariateCopulas
-include("SampleScript\\Includes.jl")
+include("Includes.jl")
 include("functions.jl")
 
 # Get first date hour 12 
@@ -227,7 +225,7 @@ ylabel!("Frequency")
 xlabel!("Quantity")
 plot10 = plot(h3,h4, layout=(2,1), size=(600,600))
 
-savefig(plot10, "Figures/hist_quantity_demand.pdf")
+# savefig(plot10, "Figures/hist_quantity_demand.pdf")
 
 high_q_df.Quantity |> extrema
 df_d.Quantity |> extrema
@@ -241,7 +239,7 @@ plot!(dates, p.([1.:length(high_q_df.Quantity)...]), lw=2, ls=:dash, color=3, la
 p = Polynomials.fit([1.:length(high_q_df.Quantity)...], high_q_df.Quantity, 3)
 plot!(dates, p.([1.:length(high_q_df.Quantity)...]), lw=2, ls=:dash, color=4, label = "3rd order polynomial")
 
-savefig(plot11, "Figures/high_quantity_demand.pdf")
+# savefig(plot11, "Figures/high_quantity_demand.pdf")
 
 # Investigating the number of bids
 
@@ -259,7 +257,7 @@ xlabel!("Number of bids")
 ylabel!("Frequency")
 plot12 = plot(p5,p6, layout=(2,1), size=(600,600))
 
-savefig(plot12, "Figures/number_of_demand_bids.pdf")
+# savefig(plot12, "Figures/number_of_demand_bids.pdf")
 
 # Investigating the total supplied quantity // market volume
 
@@ -283,8 +281,6 @@ savefig(plot13, "Figures/market_demand_quantity.pdf")
 # ====================================
 
 
-
-
 plot20 = plot(p1,p5,p2,p6, layout=(2,2), size=(800,600))
 extrema(n_bids.n)
 extrema(n_bids_d.n)
@@ -298,3 +294,13 @@ plot22 = plot(h1,h3,h2,h4, layout=(2,2), size=(800,600))
 savefig(plot20, "Figures/number_of_bids.pdf")
 savefig(plot21, "Figures/market_quantity.pdf")
 savefig(plot22, "Figures/hist_quantity.pdf")
+
+# show negative correlation between number of demand and supply bids
+
+plot23 = scatter(n_bids.n, n_bids_d.n, label="Number of bids", xlabel="Number of supply bids", ylabel="Number of demand bids")
+p = Polynomials.fit(n_bids.n, n_bids_d.n, 2)
+plot!(sort(n_bids.n), p.(sort(n_bids.n)), lw=2, ls=:dash, color=3, label = "2nd order polynomial")
+p = Polynomials.fit(n_bids.n, n_bids_d.n, 3)
+plot!(sort(n_bids.n), p.(sort(n_bids.n)), lw=2, ls=:dash, color=4, label = "3rd order polynomial")
+
+savefig(plot23, "Figures/relation_supply_demand_bids.pdf")
