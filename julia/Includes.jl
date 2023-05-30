@@ -1,11 +1,25 @@
 using DayAheadEmbedding
 using Dates
 using SQLite
-using DataFrames
+using DataFrames, DataFramesMeta
 using Plots
 using Measures
 using StatsPlots
 using ProgressMeter
+using Distributions
+using Embeddings
+using StatsBase
+using LaTeXStrings, Latexify
+using Chain
+using ForwardDiff
+using Interpolations
+using BivariateCopulas
+using DiscretizedCopulas
+using Memoize, Random
+
+import Base:
+    Threads
+    length
 
 import SQLite:
     DB,
