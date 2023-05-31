@@ -55,13 +55,18 @@ C = BetaCopula(U, V)
 @time C = DiscretizedCopula{:PDF}(C, 300)
 
 Z = [pdf(C,[u,v]) for u in LinRange(0.01,0.99,101), v in LinRange(0.01,0.99,101)]
-plot_hmap = heatmap(Z)
-plot!(xticks=(1:20:101, 0:0.2:1), yticks=(1:20:101, 0:0.2:1))
+plot_hmap = heatmap(Z')
+scatter!(100*U, 100*V, label="", xlims=(0.3,100), ylims=(0.3,99.8))
+plot!(xticks=(LinRange(0.5,100,6), 0:0.2:1), yticks=(LinRange(0.5,99,6), 0:0.2:1))
 plot!(xlabel="u", ylabel="v")
-surface(Z)
-contour(Z)
+# surface!(Z')
+plot_contour = contour(Z', fill=true)
+scatter!(100*U, 100*V, label="", xlims=(0.7,100), ylims=(0.7,99.8))
+plot!(xticks=(LinRange(0.7,100,6), 0.0:0.2:1), yticks=(LinRange(0.7,99,6), 0:0.2:1))
+plot!(xlabel="u", ylabel="v")
 
 # savefig(plot_hmap, "Figures/heatmap_copula_density.pdf")
+# savefig(plot_contour, "Figures/contour_copula_density.pdf")
 
 Intensities = GetIntensities(price_pp, comb_prices.k, comb_prices.n, mollifier_tolerance)
 λₚ = Intensities.λ
